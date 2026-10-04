@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TrustDesk — Support Ops Console</title>
+<style>
+  :root {
+    --bg: #15171c;
+    --panel: #1c1f26;
+    --panel-raised: #22262f;
+    --border: #2d3139;
+    --text: #e8e9ec;
+    --text-dim: #9196a1;
+    --text-faint: #5c616c;
+    --accent: #e0a855;
+    --accent-dim: #4a3d26;
+    --safe: #5bab8a;
+    --danger: #d9755a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  header h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header .tagline { color: var(--text-dim); font-size: 13px; }
+  nav { display: flex; gap: 4px; }
+  nav button {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  nav button.active { background: var(--panel-raised); color: var(--text); border-color: var(--text-faint); }
+
+  .layout { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 61px); }
+  .sidebar { border-right: 1px solid var(--border); overflow-y: auto; }
+  .ticket-item {
+    padding: 14px 18px; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .ticket-item:hover { background: var(--panel); }
+  .ticket-item.selected { background: var(--panel-raised); border-left: 2px solid var(--accent); }
+  .ticket-item .tid { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .ticket-item .subj { margin-top: 3px; font-size: 13.5px; }
+  .ticket-item .meta { margin-top: 6px; display: flex; gap: 6px; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .badge.priority-urgent { color: var(--danger); border-color: var(--danger); }
+  .badge.priority-high { color: var(--accent); border-color: var(--accent); }
+
+  main { padding: 28px 36px; overflow-y: auto; }
+  .empty-state { color: var(--text-dim); padding-top: 80px; text-align: center; }
+
+  section.block {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  section.block h2 {
+    font-size: 12px; text-transform: none; color: var(--text-dim); margin: 0 0 14px 0;
+    font-weight: 600; letter-spacing: 0.01em;
+  }
+  .ticket-header h3 { margin: 0 0 4px 0; font-size: 19px; }
+  .ticket-header .tid { font-family: var(--mono); color: var(--text-faint); font-size: 12px; }
+  .ticket-body { margin-top: 12px; color: var(--text-dim); white-space: pre-wrap; }
+
+  .context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .context-card { background: var(--panel-raised); border-radius: 8px; padding: 14px 16px; }
+  .context-card .label { color: var(--text-faint); font-size: 11px; margin-bottom: 6px; }
+  .context-card .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+  .context-card .row span:first-child { color: var(--text-dim); }
+
+  .actions-row { display: flex; gap: 10px; margin-bottom: 4px; }
+  button.primary {
+    background: var(--accent); color: #221a0f; border: none; font-weight: 600;
+    padding: 9px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.secondary {
+    background: var(--panel-raised); color: var(--text); border: 1px solid var(--border);
+    padding: 9px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button.secondary:hover { border-color: var(--text-faint); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .triage-result { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .pill { background: var(--panel-raised); border-radius: 7px; padding: 10px 14px; min-width: 110px; }
+  .pill .k { font-size: 11px; color: var(--text-faint); }
+  .pill .v { font-size: 14px; margin-top: 2px; font-weight: 600; }
+  .pill.escalate .v { color: var(--danger); }
+
+  .draft-status {
+    display: inline-block; padding: 3px 10px; border-radius: 5px; font-size: 11px;
+    font-family: var(--mono); margin-bottom: 10px;
+  }
+  .draft-status.generated { background: rgba(91,171,138,0.15); color: var(--safe); }
+  .draft-status.escalated { background: rgba(224,168,85,0.15); color: var(--accent); }
+  .draft-status.refused { background: rgba(217,117,90,0.15); color: var(--danger); }
+
+  .draft-text { background: var(--panel-raised); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  .citations { display: flex; gap: 6px; flex-wrap: wrap; }
+  .citation-chip {
+    font-family: var(--mono); font-size: 11px; background: var(--panel-raised);
+    border: 1px solid var(--border); padding: 3px 9px; border-radius: 5px; color: var(--text-dim);
+  }
+
+  .action-card {
+    background: var(--panel-raised); border: 1px solid var(--accent-dim); border-radius: 8px;
+    padding: 14px 16px; margin-top: 10px;
+  }
+  .action-card .tool { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  .action-card .reason { color: var(--text-dim); font-size: 13px; margin: 6px 0 12px 0; }
+  .action-card .approval-controls { display: flex; gap: 8px; align-items: center; }
+  .action-card .status-tag { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+
+  .guardrail-banner {
+    background: rgba(217,117,90,0.1); border: 1px solid var(--danger); border-radius: 8px;
+    padding: 10px 14px; color: var(--danger); font-size: 13px; margin-bottom: 14px;
+  }
+
+  table.eval-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.eval-table th, table.eval-table td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+  }
+  table.eval-table th { color: var(--text-faint); font-weight: 500; font-size: 11px; }
+  .pass-yes { color: var(--safe); }
+  .pass-no { color: var(--danger); }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric-card { background: var(--panel-raised); border-radius: 8px; padding: 14px; }
+  .metric-card .label { font-size: 11px; color: var(--text-faint); }
+  .metric-card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+
+  .loading { color: var(--text-faint); font-size: 12px; padding: 4px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>TrustDesk</h1>
+    <div class="tagline">AI support operations console</div>
+  </div>
+  <nav>
+    <button id="tab-tickets" class="active">Tickets</button>
+    <button id="tab-evals">Eval Report</button>
+  </nav>
+</header>
+
+<div class="layout" id="tickets-view">
+  <div class="sidebar" id="ticket-list"></div>
+  <main id="ticket-detail">
+    <div class="empty-state">Select a ticket to open it.</div>
+  </main>
+</div>
+
+<main id="evals-view" style="display:none; max-width: 980px; margin: 0 auto;">
+  <section class="block">
+    <h2>Run Evaluation</h2>
+    <button class="primary" id="run-eval-btn">Run eval_cases.jsonl</button>
+    <div id="eval-run-status" class="loading"></div>
+  </section>
+  <div id="eval-report"></div>
+</main>
+
+<script>
+// Relative path works both when the backend serves this file directly
+// (Docker) and when opened as a plain local file pointing at localhost:4000.
+const API = (window.location.protocol === "file:")
+  ? "http://localhost:4000/api"
+  : "/api";
+const API_TOKEN = "trustdesk-demo-token";
+const AUTH_HEADERS = { "Authorization": `Bearer ${API_TOKEN}` };
+let tickets = [];
+let selectedTicketId = null;
+
+// ---------- Tab switching ----------
+document.getElementById("tab-tickets").onclick = () => switchTab("tickets");
+document.getElementById("tab-evals").onclick = () => switchTab("evals");
+
+function switchTab(tab) {
+  document.getElementById("tickets-view").style.display = tab === "tickets" ? "grid" : "none";
+  document.getElementById("evals-view").style.display = tab === "evals" ? "block" : "none";
+  document.getElementById("tab-tickets").classList.toggle("active", tab === "tickets");
+  document.getElementById("tab-evals").classList.toggle("active", tab === "evals");
+  if (tab === "evals") loadLatestEvalRun();
+}
+
+// ---------- Ticket list ----------
+async function loadTickets() {
+  const res = await fetch(`${API}/tickets`, { headers: AUTH_HEADERS });
+  const data = await res.json();
+  tickets = data.tickets;
+  renderTicketList();
+}
+
+function renderTicketList() {
+  const el = document.getElementById("ticket-list");
+  el.innerHTML = tickets.map(t => `
+    <div class="ticket-item ${t.ticket_id === selectedTicketId ? "selected" : ""}" data-id="${t.ticket_id}">
+      <div class="tid">${t.ticket_id}</div>
+      <div class="subj">${escapeHtml(t.subject)}</div>
+      <div class="meta">
+        <span class="badge">${t.channel}</span>
+        <span class="badge">${t.status}</span>
+      </div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".ticket-item").forEach(item => {
+    item.onclick = () => openTicket(item.dataset.id);
+  });
+}
+
+// ---------- Ticket detail ----------
+async function openTicket(ticketId) {
+  selectedTicketId = ticketId;
+  renderTicketList();
+  const res = await fetch(`${API}/tickets/${ticketId}`, { headers: AUTH_HEADERS });
+  const data = await res.json();
+  renderTicketDetail(data);
+}
+
+function renderTicketDetail({ ticket, customer, order }) {
+  const main = document.getElementById("ticket-detail");
+  main.innerHTML = `
+    <section class="block ticket-header">
+      <div class="tid">${ticket.ticket_id}</div>
+      <h3>${escapeHtml(ticket.subject)}</h3>
+      <div class="ticket-body">${escapeHtml(ticket.body)}</div>
+    </section>
+
+    <section class="block">
+      <h2>Customer &amp; Order Context</h2>
+      <div class="context-grid">
+        <div class="context-card">
+          <div class="label">Customer</div>
+          ${customer ? `
+            <div class="row"><span>Name</span><span>${escapeHtml(customer.name)}</span></div>
+            <div class="row"><span>Tier</span><span>${customer.tier || "-"}</span></div>
+            <div class="row"><span>Verified</span><span>${customer.verified ? "Yes" : "No"}</span></div>
+          ` : `<div class="row"><span>No customer linked</span></div>`}
+        </div>
+        <div class="context-card">
+          <div class="label">Order</div>
+          ${order ? `
+            <div class="row"><span>Order ID</span><span>${order.order_id}</span></div>
+            <div class="row"><span>Status</span><span>${order.status || "-"}</span></div>
+            <div class="row"><span>Total</span><span>${order.currency || ""} ${order.total ?? "-"}</span></div>
+            <div class="row"><span>Return until</span><span>${order.eligible_return_until || "-"}</span></div>
+          ` : `<div class="row"><span>No order linked</span></div>`}
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Triage</h2>
+      <div class="actions-row">
+        <button class="primary" id="triage-btn">Run Triage</button>
+      </div>
+      <div id="triage-result"></div>
+    </section>
+
+    <section class="block">
+      <h2>Draft Reply</h2>
+      <div class="actions-row">
+        <button class="primary" id="draft-btn">Generate Draft</button>
+      </div>
+      <div id="draft-result"></div>
+    </section>
+  `;
+
+  document.getElementById("triage-btn").onclick = () => runTriage(ticket.ticket_id);
+  document.getElementById("draft-btn").onclick = () => runDraft(ticket.ticket_id);
+}
+
+async function runTriage(ticketId) {
+  const resultEl = document.getElementById("triage-result");
+  resultEl.innerHTML = `<div class="loading">Running triage…</div>`;
+  const res = await fetch(`${API}/tickets/${ticketId}/triage`, { method: "POST", headers: AUTH_HEADERS });
+  const data = await res.json();
+  resultEl.innerHTML = `
+    <div class="triage-result">
+      <div class="pill"><div class="k">Category</div><div class="v">${data.category}</div></div>
+      <div class="pill"><div class="k">Priority</div><div class="v">${data.priority}</div></div>
+      <div class="pill"><div class="k">Sentiment</div><div class="v">${data.sentiment}</div></div>
+      <div class="pill ${data.should_escalate ? "escalate" : ""}">
+        <div class="k">Escalate</div><div class="v">${data.should_escalate ? "Yes" : "No"}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function runDraft(ticketId) {
+  const resultEl = document.getElementById("draft-result");
+  resultEl.innerHTML = `<div class="loading">Generating draft…</div>`;
+  const res = await fetch(`${API}/tickets/${ticketId}/draft`, { method: "POST", headers: AUTH_HEADERS });
+  const data = await res.json();
+
+  const guardrailBanner = data.guardrail_triggered
+    ? `<div class="guardrail-banner">⚠ Guardrail triggered — unsafe instruction detected and refused.</div>`
+    : "";
+
+  const citationsHtml = data.citations.length
+    ? data.citations.map(c => `<span class="citation-chip">${c}</span>`).join("")
+    : `<span class="citation-chip">none</span>`;
+
+  const actionsHtml = (data.recommended_actions || []).map(a => `
+    <div class="action-card" data-tool="${a.tool_name}">
+      <div class="tool">${a.tool_name}</div>
+      <div class="reason">${escapeHtml(a.reason)}</div>
+      ${a.requires_human_approval ? `
+        <div class="approval-controls">
+          <button class="primary approve-btn" data-tool="${a.tool_name}">Approve &amp; Execute</button>
+          <button class="secondary reject-btn" data-tool="${a.tool_name}">Reject</button>
+          <span class="status-tag" data-status></span>
+        </div>
+      ` : `<div class="status-tag">No approval required for this action.</div>`}
+    </div>
+  `).join("");
+
+  resultEl.innerHTML = `
+    ${guardrailBanner}
+    <div class="draft-status ${data.status}">${data.status}</div>
+    <div class="draft-text">${escapeHtml(data.body)}</div>
+    <div class="citations">${citationsHtml}</div>
+    ${actionsHtml}
+  `;
+
+  resultEl.querySelectorAll(".approve-btn").forEach(btn => {
+    btn.onclick = () => proposeAndApprove(ticketId, btn.dataset.tool, btn, "approve");
+  });
+  resultEl.querySelectorAll(".reject-btn").forEach(btn => {
+    btn.onclick = () => proposeAndApprove(ticketId, btn.dataset.tool, btn, "reject");
+  });
+}
+
+async function proposeAndApprove(ticketId, toolName, btn, decision) {
+  const card = btn.closest(".action-card");
+  const statusTag = card.querySelector("[data-status]");
+  statusTag.textContent = "Submitting…";
+
+  // Propose the action (idempotent on tool + ticket for this demo flow)
+  const proposeRes = await fetch(`${API}/tickets/${ticketId}/actions`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...AUTH_HEADERS },
+  body: JSON.stringify({
+    tool_name: toolName,
+    payload: {},
+    idempotency_key: `ui-${ticketId}-${toolName}`,
+  }),
+});
+  const proposeData = await proposeRes.json();
+  const actionId = proposeData.action.action_id;
+
+  const approveRes = await fetch(`${API}/actions/${actionId}/approve`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...AUTH_HEADERS },
+  body: JSON.stringify({ decision, reviewer_id: "ui_reviewer" }),
+});
+  const approveData = await approveRes.json();
+
+  statusTag.textContent = `Status: ${approveData.action.status} (action_id: ${actionId})`;
+  card.querySelectorAll("button").forEach(b => b.disabled = true);
+}
+
+// ---------- Eval report ----------
+document.getElementById("run-eval-btn").onclick = async () => {
+  const statusEl = document.getElementById("eval-run-status");
+  statusEl.textContent = "Running eval cases — this re-runs triage + draft generation for every case, may take a moment…";
+  const res = await fetch(`${API}/tickets/__noop__`); // no-op to keep flow consistent if needed
+  statusEl.textContent = "Trigger `npm run eval` in your backend terminal, then click \"Load latest report\" below.";
+};
+
+async function loadLatestEvalRun() {
+  const res = await fetch(`${API}/eval-runs`, { headers: AUTH_HEADERS });
+  const data = await res.json();
+  if (!data.eval_runs.length) {
+    document.getElementById("eval-report").innerHTML = `<div class="empty-state">No eval runs yet. Run <code>npm run eval</code> in the backend.</div>`;
+    return;
+  }
+  const latest = data.eval_runs[0];
+  const detailRes = await fetch(`${API}/eval-runs/${latest.eval_run_id}`, { headers: AUTH_HEADERS });
+  const detail = await detailRes.json();
+  renderEvalReport(detail);
+}
+
+function renderEvalReport(run) {
+  const m = run.metrics;
+  const metricCards = Object.entries(m).map(([k, v]) => `
+    <div class="metric-card">
+      <div class="label">${k.replace(/_/g, " ")}</div>
+      <div class="value">${typeof v === "number" && v <= 1 ? (v * 100).toFixed(1) + "%" : v}</div>
+    </div>
+  `).join("");
+
+  const rows = run.case_results.map(r => `
+    <tr>
+      <td>${r.case_id}</td>
+      <td>${r.ticket_id}</td>
+      <td class="${r.passed ? "pass-yes" : "pass-no"}">${r.passed ? "PASS" : "FAIL"}</td>
+      <td>${r.predicted_category}</td>
+      <td>${r.predicted_priority}</td>
+      <td>${(r.citations || []).join(", ") || "-"}</td>
+      <td>${r.should_escalate ? "Yes" : "No"}</td>
+      <td>${r.notes || ""}</td>
+    </tr>
+  `).join("");
+
+  document.getElementById("eval-report").innerHTML = `
+    <section class="block">
+      <h2>Run ${run.eval_run_id} — ${run.total_cases} cases</h2>
+      <div class="metric-grid">${metricCards}</div>
+      <table class="eval-table">
+        <thead>
+          <tr>
+            <th>Case</th><th>Ticket</th><th>Result</th><th>Category</th>
+            <th>Priority</th><th>Citations</th><th>Escalate</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return str.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// ---------- Init ----------
+loadTickets();
+</script>
+</body>
+</html>

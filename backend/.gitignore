@@ -1,0 +1,6 @@
+node_modules/
+trustdesk.db
+trustdesk.db-journal
+trustdesk.db-wal
+trustdesk.db-shm
+.env

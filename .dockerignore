@@ -1,0 +1,7 @@
+backend/node_modules
+backend/trustdesk.db
+backend/trustdesk.db-journal
+backend/trustdesk.db-wal
+backend/trustdesk.db-shm
+backend/.env
+**/npm-debug.log

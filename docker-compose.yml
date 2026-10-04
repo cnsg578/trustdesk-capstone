@@ -1,0 +1,17 @@
+services:
+  trustdesk:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - API_TOKEN=trustdesk-demo-token
+      - DB_PATH=/app/backend/db/trustdesk.db
+    volumes:
+      - trustdesk-data:/app/backend/db
+    restart: unless-stopped
+
+volumes:
+  trustdesk-data:
