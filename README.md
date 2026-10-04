@@ -338,6 +338,9 @@ docker compose exec trustdesk npm test   # Docker
 
 ---
 
+
+
+
 ## Known Limitations
 
 - **Retrieval is keyword + category-boosted, not a vector/embedding
@@ -361,4 +364,5 @@ docker compose exec trustdesk npm test   # Docker
   persistent via a Docker volume, but would need migration for
   multi-instance horizontal scaling.
 
+Thanks
   
